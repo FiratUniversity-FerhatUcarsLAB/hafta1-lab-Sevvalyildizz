@@ -2,3 +2,69 @@
 AD-SOYAD:
 
 Lütfen seçtiğiniz algoritmaya ait çözümü ve diğer isterleri aşağıya ekleyiniz:
+ALGORITMA OPTIMUM_BUTCELI_MARKET_ALISVERISI()
+
+    // --- Girdi: Kullanıcıdan bütçe bilgisi alınır ---
+    YAZ("Optimum Bütçeli Market Alışverişi Programına Hoş Geldiniz!")
+    butce ← kullanıcıdan_al("Lütfen toplam bütçenizi giriniz (TL): ")
+
+    // --- Ürün listesi tanımlanır (ürün adı, fiyat, öncelik) ---
+    // Öncelik: 1 = zorunlu, 2 = ihtiyaç, 3 = isteğe bağlı
+    URUNLER ← [
+        {ad: "Ekmek", fiyat: 10, oncelik: 1},
+        {ad: "Süt", fiyat: 25, oncelik: 1},
+        {ad: "Yumurta", fiyat: 40, oncelik: 1},
+        {ad: "Peynir", fiyat: 60, oncelik: 2},
+        {ad: "Makarna", fiyat: 30, oncelik: 2},
+        {ad: "Meyve", fiyat: 50, oncelik: 2},
+        {ad: "Çikolata", fiyat: 35, oncelik: 3},
+        {ad: "Gazlı içecek", fiyat: 45, oncelik: 3}
+    ]
+
+    // --- Sepet oluşturulur ---
+    SEPET ← boş_liste()
+    harcanan_para ← 0
+
+    // --- Ürünleri önceliğe göre sırala (küçükten büyüğe) ---
+    URUNLER ← SIRALA(URUNLER, "oncelik_artan")
+
+    // --- Ürün seçme döngüsü ---
+    i ← 0
+    DÖNGÜ i < UZUNLUK(URUNLER) İKEN
+
+        URUN ← URUNLER[i]
+
+        EĞER (harcanan_para + URUN.fiyat) ≤ butce İSE
+            SEPETE_EKLE(SEPET, URUN.ad)
+            harcanan_para ← harcanan_para + URUN.fiyat
+            YAZ(URUN.ad, " sepete eklendi. (Toplam harcama: ", harcanan_para, " TL)")
+        DEĞİLSE
+            YAZ(URUN.ad, " alınamadı. Bütçe yetersiz.")
+        SON
+
+        i ← i + 1
+    SON DÖNGÜ
+
+    // --- Bütçe durumu kontrolü (if-else) ---
+    kalan_para ← butce - harcanan_para
+
+    EĞER kalan_para > 0 İSE
+        YAZ("Alışveriş tamamlandı. Kalan para: ", kalan_para, " TL")
+    DEĞİLSE_EĞER kalan_para = 0 İSE
+        YAZ("Tebrikler! Bütçeniz tam olarak kullanıldı.")
+    DEĞİLSE
+        YAZ("Hata: Bütçe aşıldı! (", kalan_para, " TL fazla harcama)")
+    SON
+
+    // --- Alınan ürünlerin listesi ---
+    YAZ("Sepetteki ürünler:")
+    j ← 0
+    DÖNGÜ j < UZUNLUK(SEPET) İKEN
+        YAZ("-", SEPET[j])
+        j ← j + 1
+    SON DÖNGÜ
+
+    // --- Çıktı ---
+    YAZ("Optimum bütçeli alışveriş başarıyla tamamlandı. İyi günler!")
+
+SON ALGORITMA
