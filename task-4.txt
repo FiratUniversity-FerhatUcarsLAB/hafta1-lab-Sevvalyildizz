@@ -1,4 +1,76 @@
-Öğrenci No:
-AD-SOYAD:
+Öğrenci No:250541025
+AD-SOYAD:Şevval Yıldız
 
 Lütfen seçtiğiniz algoritmaya ait çözümü ve diğer isterleri aşağıya ekleyiniz:
+ALGORİTMA: OTOBUS_ROTASI_OPTIMIZASYON
+
+GİRİŞ: 
+    durak_listesi      # Tüm durakların listesi
+    yolcu_talepleri    # Her durakta iniş-biniş talepleri
+    otobus_sayisi
+    kapasite_otobus
+ÇIKIŞ: optimize_rotalar  # Her otobüs için en uygun rota ve durak sırası
+
+BAŞLA
+
+    # 1) Başlangıçta otobüslerin rotalarını boş olarak ata
+    FOR i ← 1 TO otobus_sayisi
+        otobus[i].rota ← BOŞ_LİSTE
+        otobus[i].doluluk ← 0
+    SON
+
+    # 2) Durak listesini sırala (örneğin talep yoğunluğuna göre azalan)
+    DURAK_LISTESI ← SORT(durak_listesi, key = yolcu_talepleri[durak], descending = TRUE)
+
+    # 3) Her durak için otobüs ata
+    FOR her durak IN DURAK_LISTESI
+        atandı ← HAYIR
+        
+        # 3a) Mevcut otobüsleri kontrol et
+        FOR her otobus IN otobus_listesi
+            EĞER otobus.doluluk + yolcu_talepleri[durak] ≤ kapasite_otobus İSE
+                EKLE(otobus.rota, durak)
+                otobus.doluluk ← otobus.doluluk + yolcu_talepleri[durak]
+                atandı ← EVET
+                BREAK
+            SON
+        SON
+
+        # 3b) Eğer hiçbir otobüs yeterli değilse yeni otobüs ekle
+        EĞER atandı = HAYIR VE otobus_sayisi < MAX_OTOBUS İSE
+            otobus_sayisi ← otobus_sayisi + 1
+            otobus[otobus_sayisi].rota ← [durak]
+            otobus[otobus_sayisi].doluluk ← yolcu_talepleri[durak]
+        SON
+    SON
+
+    # 4) Rotaları optimize et (en kısa mesafe / minimum durak bekleme)
+    FOR her otobus IN otobus_listesi
+        # 4a) Başlangıçta ilk duraktan başla
+        rota ← otobus.rota
+        optimize_oldu ← HAYIR
+        
+        # 4b) Tüm permütasyonları deneme (küçük rota sayısı için) veya basit yaklaştırma
+        WHILE optimize_oldu = HAYIR
+            mevcut_maliyet ← HESAPLA_TOPLAM_MESAFE(rota)
+            # Komşu değiş tokuşları dene
+            FOR i ← 0 TO UZUNLUK(rota)-2
+                FOR j ← i+1 TO UZUNLUK(rota)-1
+                    rota_yeni ← KOPYA(rota)
+                    TAKAS(rota_yeni[i], rota_yeni[j])
+                    maliyet_yeni ← HESAPLA_TOPLAM_MESAFE(rota_yeni)
+                    EĞER maliyet_yeni < mevcut_maliyet İSE
+                        rota ← rota_yeni
+                        mevcut_maliyet ← maliyet_yeni
+                    SON
+                SON
+            SON
+            optimize_oldu ← EVET  # Eğer değişiklik yoksa döngü sonlanır
+        SON
+        otobus.rota ← rota
+    SON
+
+    # 5) Sonuçları döndür
+    optimize_rotalar ← otobus_listesi
+    DÖNDÜR optimize_rotalar
+BİTİR
