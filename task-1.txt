@@ -1,5 +1,5 @@
-Öğrenci No:
-AD-SOYAD:
+Öğrenci No:250541025
+AD-SOYAD:Şevval Yıldız
 
 Lütfen seçtiğiniz algoritmaya ait çözümü ve diğer isterleri aşağıya ekleyiniz:
 ALGORITMA OPTIMUM_BUTCELI_MARKET_ALISVERISI()
