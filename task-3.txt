@@ -2,3 +2,53 @@
 AD-SOYAD:
 
 Lütfen seçtiğiniz algoritmaya ait çözümü ve diğer isterleri aşağıya ekleyiniz:
+ALGORİTMA: NOTLARI_EN_YUKSEKTEN_DUSUGE_SIRALA
+
+GİRİŞ: not_listesi  # Örn: [85, 92, 70, 100, 65, 88]
+ÇIKIŞ: sirali_not_listesi
+
+BAŞLA
+    n ← UZUNLUK(not_listesi)
+
+    # 1) Eğer liste boşsa veya tek elemanlıysa hemen döndür
+    EĞER n = 0 VEYA n = 1 İSE
+        DÖNDÜR not_listesi
+    SON
+
+    # 2) Sıralama başlatılıyor (Seçim sıralaması - Selection Sort)
+    FOR i ← 0 TO n-2
+        # a) Mevcut tur için en büyük değeri başlangıçta i olarak al
+        en_buyuk_indeks ← i
+        en_buyuk_deger ← not_listesi[i]
+
+        # b) Listenin geri kalanını tara
+        FOR j ← i+1 TO n-1
+            EĞER not_listesi[j] > en_buyuk_deger İSE
+                en_buyuk_deger ← not_listesi[j]
+                en_buyuk_indeks ← j
+            SON
+        SON
+
+        # c) Eğer en büyük değer i pozisyonunda değilse yer değiştir
+        EĞER en_buyuk_indeks ≠ i İSE
+            GEÇİCİ ← not_listesi[i]
+            not_listesi[i] ← not_listesi[en_buyuk_indeks]
+            not_listesi[en_buyuk_indeks] ← GEÇİCİ
+        SON
+
+        # d) Her turdan sonra geçici listeyi kontrol et
+        YAZDIR("Tur ", i+1, ": ", not_listesi)
+    SON
+
+    # 3) Tüm liste sıralandı
+    sirali_not_listesi ← not_listesi
+
+    # 4) Son kontrol: listenin gerçekten azalan sırada olduğundan emin ol
+    FOR k ← 0 TO n-2
+        EĞER sirali_not_listesi[k] < sirali_not_listesi[k+1] İSE
+            YAZDIR("Hata: Sıralama yanlış!")
+        SON
+    SON
+
+    DÖNDÜR sirali_not_listesi
+BİTİR
