@@ -1,4 +1,306 @@
-Öğrenci No:
-AD-SOYAD:
+Öğrenci No:250541025
+AD-SOYAD:Şevval Yıldız
 
 Lütfen seçtiğiniz algoritmaya ait çözümü ve diğer isterleri aşağıya ekleyiniz:
+ALGORİTMA ERTELEME_ONLEYICI_CALISMA_ALGORITMASI
+
+GİRİŞ:
+    kullanici_profili  # {ad, tercih_pomodoro_dakika, dikkat_parcasi_saniye, gunluk_hedef_dakika, enerji_zamanlar, motivasyon_baslangic}
+    gorev_listesi      # her görev: {id, baslik, aciklama, oncelik, tahmini_dakika, zorluk(1-10), deadline, alt_gorevler, tamamlandi, son_deneme_tarihi, basaris_orani}
+    sistem_tercihleri  # {min_mikro_gorev_dk, max_uzun_odak_dk, min_odak_dk, mola_tercihi, hatirlatici_sikligi_saniye}
+ÇIKIŞ:
+    oturum_gunlugu_log  # yapılan her adımın kaydı, skor, ödül, kalan görevler
+
+BAŞLA
+    KULLANICIYI_YUKLE(kullanici_profili)
+    GOREVLERI_YUKLE(gorev_listesi)
+    AYARLARI_YUKLE(sistem_tercihleri)
+
+    # Başlangıç hesaplamaları
+    saat_simdi ← SAAT_BUGUN()
+    kullanici_motivasyon ← kullanici_profili.motivasyon_baslangic
+    gunluk_kalan_hedef ← kullanici_profili.gunluk_hedef_dakika
+    oturum_gunlugu_log ← BOŞ_LİSTE
+    ardarda_basari_sayaci ← 0
+    puan ← 0
+
+    # Main döngü: gün sonuna kadar veya bütün görevler tamamlanana kadar
+    WHILE gunluk_kalan_hedef > 0 AND VARSAY(GOREV_VAR(gorev_listesi)) DO
+
+        # 1) Görev seçimi (öncelik + aciliyet + başarısızlık ağırlıklı)
+        secilen_gorev ← GOREV_SEC(gorev_listesi, saat_simdi, kullanici_motivasyon)
+
+        # 2) Eğer görev çok büyükse alt-görevlere böl
+        EĞER secilen_gorev.tahmini_dakika > (kullanici_profili.tercih_pomodoro_dakika * 2) VEYA secilen_gorev.zorluk > 7 İSE
+            altlar ← BOL(secilen_gorev, sistem_tercihleri.min_mikro_gorev_dk)
+            secilen_gorev.alt_gorevler ← altlar
+            SECILEN_ALT ← secilen_gorev.alt_gorevler[0]
+            aktif_hedef ← SECILEN_ALT
+        DEĞİLSE
+            aktif_hedef ← secilen_gorev
+        SON
+
+        # 3) Oturum başlangıcı: odak süresini ayarla (adaptive)
+        odak_dk ← AYARLA_ODAK_DK(kullanici_profili, kullanici_motivasyon, aktif_hedef.zorluk, sistem_tercihleri)
+        EĞER odak_dk < sistem_tercihleri.min_odak_dk İSE
+            odak_dk ← sistem_tercihleri.min_odak_dk
+        EĞER odak_dk > sistem_tercihleri.max_uzun_odak_dk İSE
+            odak_dk ← sistem_tercihleri.max_uzun_odak_dk
+        mola_dk ← MOLA_AYARLA(odak_dk, kullanici_profili.mola_tercihi)
+
+        # 4) Kullanıcıya hedef bildir
+        HATIRLAT("Şu görev: " + aktif_hedef.baslik + " — hedef odak süresi: " + odak_dk + " dakika")
+
+        # 5) Odak dönemine başla (zaman sayacı)
+        TIMER_BASLAT(odak_dk * 60)  # saniye cinsinden
+        odak_baslangic_zamani ← ZAMAN_AL()
+        dikkat_kesinti_sayaci ← 0
+        adim_sayaci ← 0
+        tamamlandi_flag ← HAYIR
+
+        # 6) Odak dönemi iç döngüsü: kısa aralıklarla dikkat kontrolü
+        WHILE TIMER_CALISIYOR() DO
+            # 6.1 kısa periyodik kontrol
+            SLEEP(sistem_tercihleri.hatirlatici_sikligi_saniye)
+            adim_sayaci ← adim_sayaci + 1
+
+            # 6.2 dış müdahale veya acil durum kontrolü
+            EĞER ACIL_DURUM_OLUSTU() İSE
+                LOG(oturum_gunlugu_log, "Acil durum nedeniyle oturum durduruldu")
+                SAKLA_DURUM(aktif_hedef, gorev_listesi)
+                GOTO OTURUM_BITIR
+            SON
+
+            # 6.3 dikkat tespiti (sensör / giriş / manuel)
+            odak_devam ← CHECK_FOCUS()
+            EĞER odak_devam == DOGRU İSE
+                # kullanıcı odaklı çalışıyor — ilerleme kaydet
+                PROGRESS_TRACK(aktif_hedef, sistem_tercihleri.hatirlatici_sikligi_saniye)
+            DEĞİLSE
+                dikkat_kesinti_sayaci ← dikkat_kesinti_sayaci + 1
+                LOG(oturum_gunlugu_log, "Dikkat kesintisi tespit edildi. Sayı: " + dikkat_kesinti_sayaci)
+                # 6.3a: Kısa düzeltme adımı ver
+                EĞER dikkat_kesinti_sayaci == 1 İSE
+                    ÖNERI_MIKRO_GOREV(aktif_hedef, "Sadece 2 dakika odaklan")
+                    GERI_BILDIRI_ISTE()  # kullanıcıya motive edici mesaj
+                ELIF dikkat_kesinti_sayaci == 2 İSE
+                    ÖNERI_MIKRO_GOREV(aktif_hedef, "1 küçük adım: sadece başlığın taslağını yaz")
+                ELIF dikkat_kesinti_sayaci >= 3 İSE
+                    # art arda dikkat kaybı → odak süresini kısalt ve mola ver
+                    TIMER_PAUSE()
+                    HATIRLAT("Görünüşe göre zorlanıyorsun. 2 dakikalık hareket molası veriliyor.")
+                    BEKLE(120)
+                    TIMER_RESTART()
+                    dikkat_kesinti_sayaci ← 0
+                SON
+            SON
+
+            # 6.4 Ara hedef tamamlama kontrolü (mikro-görev tamamlandıysa)
+            EĞER MIKRO_GOREV_TAMAMLANDI(aktif_hedef) İSE
+                tamamlandi_flag ← DOGRU
+                LOG(oturum_gunlugu_log, "Mikro-görev tamamlandı: " + aktif_hedef.id)
+                BREAK
+            SON
+
+            # 6.5 zaman dolduysa döngüden çık
+            EĞER TIMER_BITECEK() İSE
+                BREAK
+            SON
+        SON_WHILE
+
+        # 7) Odak dönemi bitiş işlemleri
+        odak_bitis_zamani ← ZAMAN_AL()
+        gecen_saniye ← ZAMAN_FARK(odak_baslangic_zamani, odak_bitis_zamani)
+        gecen_dakika ← ROUND_UP(gecen_saniye / 60)
+        gunluk_kalan_hedef ← gunluk_kalan_hedef - gecen_dakika
+
+        # 8) Başarı / başarısızlık değerlendirme
+        EĞER tamamlandi_flag == DOGRU İSE
+            # puan ve motivasyon artırma
+            puan_artis ← HESAPLA_PUAN(aktif_hedef, gecen_dakika, dikkat_kesinti_sayaci)
+            puan ← puan + puan_artis
+            ardarda_basari_sayaci ← ardarda_basari_sayaci + 1
+            kullanici_motivasyon ← kullanici_motivasyon + (puan_artis * 0.1)
+            LOG(oturum_gunlugu_log, "Başarı: puan +" + puan_artis)
+            # görev tamamlandıysa işaretle
+            EĞER aktif_hedef.alt_gorevler VAR VE TUMU_TAMAMLANDI(aktif_hedef.alt_gorevler) İSE
+                MARK_TAMAMLANDI(secilen_gorev, gorev_listesi)
+            EĞER aktif_hedef.bagli_gorev_oldugu_secilen IS NOT NULL VE TAMAMLANMA_KOSULLARI_SAGLANDI(secilen_gorev) İSE
+                MARK_TAMAMLANDI(secilen_gorev, gorev_listesi)
+        DEĞİLSE
+            # başarısızlık: geribildirim ve adaptasyon
+            ardarda_basari_sayaci ← 0
+            kullanici_motivasyon ← MAX(0, kullanici_motivasyon - 0.1)
+            # eğer odak süresi boyunca hiç ilerleme yoksa mini-öz görev öner
+            EĞER PROGRESS_DURUMU(aktif_hedef) == HİÇ İSE
+                DAGIT_MINI_GOREV(aktif_hedef, sistem_tercihleri.min_mikro_gorev_dk)
+                HATIRLAT("Küçük bir adım at: 5 dakika yalnızca başlık yaz.")
+            SON
+
+        # 9) Mola ver veya devam et kararı
+        EĞER kullanici_motivasyon < 0.2 VEYA dikkat_kesinti_sayaci >= 3 İSE
+            # dinlenme öner
+            HATIRLAT("Öneri: kısa bir mola ver. 10 dakika dinlen.")
+            BEKLE(600)
+            kullanici_motivasyon ← kullanici_motivasyon + 0.2
+        DEĞİLSE
+            # normal mola
+            HATIRLAT("Şimdi " + mola_dk + " dakika mola verin.")
+            BEKLE(mola_dk * 60)
+        SON
+
+        # 10) Günlük hedefe göre yeniden planlama
+        GOREV_LISTESINI_GUNCELLE(gorev_listesi, aktif_hedef, gecen_dakika, tamamlandi_flag)
+        OTURUM_LOG_EKLE(oturum_gunlugu_log, aktif_hedef, gecen_dakika, tamamlandi_flag, puan_artis, kullanici_motivasyon)
+
+        # 11) Eğer görev tamamlandıysa veya alt görevler oluştuysa yeniden düzenle
+        EĞER aktif_hedef.tamamlandi == DOGRU İSE
+            # sonraki görevi seçmek için döngü devam eder
+            CONTINUE
+        DEĞİLSE
+            # eğer görev parçalandıysa kalan alt görevleri sırala ve önceliklendir
+            IF aktif_hedef.alt_gorevler VAR VE UZUNLUK(aktif_hedef.alt_gorevler) > 0 İSE
+                SIRALA_ALT_GOREVLER(aktif_hedef.alt_gorevler, kriter = "aciliyet_öncelik")
+            SON
+        SON
+
+    # DÖNGÜ SONU
+
+OTURUM_BITIR:
+    # 12) Gün sonu/oturum bitirme işlemleri
+    GUN_SONU_RAPORU_OLUSTUR(oturum_gunlugu_log, puan, ardarda_basari_sayaci, kalan_gorevler = FILTRE(gorev_listesi, tamamlandi = HAYIR))
+    SAKLA_GOREVLER(gorev_listesi)
+    DÖNDÜR oturum_gunlugu_log
+BİTİR
+
+# --------------------
+# ALT FONKSİYONLAR
+# --------------------
+
+FONKSIYON GOREV_SEC(gorev_listesi, saat_simdi, kullanici_motivasyon)
+BAŞLA
+    adaylar ← FILTRE(gorev_listesi, tamamlandi = HAYIR)
+    her_gorev_skori = {}  # map id -> skor
+    FOR g IN adaylar:
+        zaman_uyari ← 0
+        EĞER g.deadline VAR İSE
+            kalan_saat ← SAAT_FARK_SAAT(saat_simdi, g.deadline)
+            zaman_uyari ← MAX(0, (72 - kalan_saat)) / 72  # 0..1 arası aciliyet
+        başarısızlık_etkisi ← (1 - g.basaris_orani)  # 0..1
+        motivasyon_etkisi ← 1 + (0.5 * (1 - kullanici_motivasyon))  # motivasyon düşükse daha kolay hedef seçilebilir
+        skor ← g.oncelik * 2 + zaman_uyari * 3 + başarısızlık_etkisi * 2
+        skor ← skor * motivasyon_etkisi
+        her_gorev_skori[g.id] ← skor
+    SON
+    secim ← ARGMAX(her_gorev_skori)
+    DÖNDÜR GOREV_BY_ID(secim)
+BİTİR
+
+FONKSIYON BOL(gorev, min_mikro_dk)
+BAŞLA
+    alt_list ← BOŞ_LİSTE
+    kalan ← gorev.tahmini_dakika
+    while kalan > 0:
+        yeni_dakika ← MIN(min_mikro_dk, kalan)
+        alt ← {id: gorev.id + "alt" + STR(uzunluk(alt_list)+1), baslik: gorev.baslik + " (adım)", tahmini_dakika: yeni_dakika, zorluk: MAX(1, ROUND(gorev.zorluk * (yeni_dakika / gorev.tahmini_dakika))), tamamlandi: HAYIR}
+        EKLE(alt_list, alt)
+        kalan ← kalan - yeni_dakika
+    SON
+    DÖNDÜR alt_list
+BİTİR
+
+FONKSIYON AYARLA_ODAK_DK(profil, motivasyon, zorluk, tercihler)
+BAŞLA
+    base ← profil.tercih_pomodoro_dakika
+    # motivasyon arttıkça odak süresi artar, zorluk arttıkça odak süresi kısalır
+    adj ← base + (motivasyon * 10) - (zorluk * 1.5)
+    # zamana göre ayar (enerji zamanlarına bak)
+    saat ← SAAT_BUGUN()
+    EĞER saat IN profil.enerji_zamanlar["dusuk"] İSE
+        adj ← adj * 0.8
+    ELIF saat IN profil.enerji_zamanlar["yuksek"] İSE
+        adj ← adj * 1.1
+    SON
+    DÖNDÜR ROUND(adj)
+BİTİR
+
+FONKSIYON CHECK_FOCUS()
+BAŞLA
+    # sensörler veya kullanıcı girdisi ile kontrol (simülasyon: 0/1)
+    sesi ← MAKINE_SESLI_BULGU()
+    klavye_activity ← KULLANICI_GIRDISI_VAR()
+    ekran_degisim ← EKRAN_DEGISTI_MI()
+    IF sesi == YUKSEK VE klavye_activity == HAYIR VE ekran_degisim == HAYIR:
+        DÖNDÜR DOGRU
+    ELSE
+        # manuel müdahale ile kullanıcı "devam" dese de odak olarak say
+        kullanici_onayi ← MANUEL_ONAY_ISTE(kısa = 5 saniye)
+        EĞER kullanici_onayi == DOGRU:
+            DÖNDÜR DOGRU
+        ELSE
+            DÖNDÜR YANLIŞ
+        SON
+    SON
+BİTİR
+
+FONKSIYON PROGRESS_TRACK(gorev, interval_saniye)
+BAŞLA
+    # örnek: her dakika yapılan kelime sayısı veya satır girisi gibi ölçülerle ilerleme artır
+    ilerleme_metrik ← OLENME_METRIK_OKU(gorev)
+    gorev.son_deneme_tarihi ← BUGUN()
+    gorev.basaris_orani ← GUNCELLE_BASARIS_ORANI(gorev, ilerleme_metrik)
+    DÖNDÜR
+BİTİR
+
+FONKSIYON MIKRO_GOREV_TAMAMLANDI(gorev)
+BAŞLA
+    EĞER gorev.tamamlandi == DOGRU İSE
+        DÖNDÜR DOGRU
+    EĞER gorev.ilerleme_metrik >= gorev.tahmini_dakika * 60 İSE
+        DÖNDÜR DOGRU
+    DÖNDÜR YANLIŞ
+BİTİR
+
+FONKSIYON HESAPLA_PUAN(gorev, gecen_dk, kesinti_sayisi)
+BAŞLA
+    temel ← gorev.oncelik * 10
+    hiz_bonus ← MAX(0, (gorev.tahmini_dakika - gecen_dk)) * 2
+    kesinti_ceza ← kesinti_sayisi * 5
+    puan ← temel + hiz_bonus - kesinti_ceza
+    EĞER puan < 0 İSE puan ← 0
+    DÖNDÜR puan
+BİTİR
+
+FONKSIYON DAGIT_MINI_GOREV(gorev, min_mikro_dk)
+BAŞLA
+    yeni_alt ← {id: gorev.id + "_mini", baslik: gorev.baslik + " - mini adım", tahmini_dakika: min_mikro_dk, zorluk: MAX(1, ROUND(gorev.zorluk * 0.5)), tamamlandi: HAYIR}
+    EKLE_ONCE(gorev.alt_gorevler, yeni_alt)
+    DÖNDÜR
+BİTİR
+
+FONKSIYON GOREV_LISTESINI_GUNCELLE(gorev_listesi, gorev, gecen_dk, tamamlandi_flag)
+BAŞLA
+    # kalan süreyi azalt, tamamlandıysa işaretle
+    gorev.tahmini_dakika ← MAX(0, gorev.tahmini_dakika - gecen_dk)
+    IF tamamlandi_flag == DOGRU VE gorev.tahmini_dakika == 0:
+        gorev.tamamlandi ← DOGRU
+    SON
+    SAKLA(gorev_listesi)
+    DÖNDÜR
+BİTİR
+
+FONKSIYON GUN_SONU_RAPORU_OLUSTUR(log, puan, streak, kalan_gorevler)
+BAŞLA
+    rapor ← {tarih: BUGUN(), toplam_puan: puan, streak: streak, tamamlanan: FILTRE(log, tip = "tamamlandi"), kalan: kalan_gorevler}
+    SAKLA_RAPOR(rapor)
+    DÖNDÜR rapor
+BİTİR
+
+FONKSIYON SAKLA_DURUM(gorev, gorev_listesi)
+BAŞLA
+    # anlık durumu kaydet ve sonrasında tekrar başlatılabilecek şekilde sakla
+    SAVE_STATE({gorev: gorev, gorev_listesi: gorev_listesi, zaman: ZAMAN_AL()})
+    DÖNDÜR
+BİTİR
+
+# BİTİŞ
