@@ -2,3 +2,157 @@
 AD-SOYAD:
 
 Lütfen seçtiğiniz algoritmaya ait çözümü ve diğer isterleri aşağıya ekleyiniz:
+ALGORİTMA: MONOPOLY_EN_İYİ_HAMLE
+
+GİRİŞ: durum, oyuncu
+ÇIKIŞ: en_iyi_hamle
+
+BAŞLA
+    # 1) Oyuncunun mevcut duruma göre tüm yasal hamlelerini belirle
+    hamle_listesi ← YASAL_HAMLELERİ_OLUŞTUR(durum, oyuncu)
+
+    # 2) Eğer tek hamle varsa hemen seç
+    EĞER UZUNLUK(hamle_listesi) = 1 İSE
+        DÖNDÜR hamle_listesi[0]
+    SON
+
+    # 3) Her hamleyi değerlendir
+    EN_YÜKSEK_SKOR ← -∞
+    EN_IYI_HAMLE ← BOŞ
+    HER hamle İÇİN hamle_listesi’NDE
+        skor ← HAMLE_DEĞERLENDİR(durum, oyuncu, hamle)
+
+        # 3a) Risk toleransını uygula
+        adj_skor ← RISK_DÜZENLE(skor, durum, oyuncu)
+
+        # 3b) En iyi hamleyi güncelle
+        EĞER adj_skor > EN_YÜKSEK_SKOR İSE
+            EN_YÜKSEK_SKOR ← adj_skor
+            EN_IYI_HAMLE ← hamle
+        SON
+    SON
+
+    # 4) En iyi hamleyi döndür
+    DÖNDÜR EN_IYI_HAMLE
+BİTİR
+
+
+FONKSİYON: YASAL_HAMLELERİ_OLUŞTUR(durum, oyuncu)
+BAŞLA
+    hamleler ← BOŞ_LİSTE
+
+    # A) Oyuncu hapiste mi kontrolü
+    EĞER oyuncu.hapiste_mi = EVET İSE
+        EKLE(hamleler, "PARA_ODE_50")
+        EKLE(hamleler, "KART_KULLAN")
+        EKLE(hamleler, "ZAR_AT")
+    DEĞİLSE
+        konum ← oyuncu.konum
+        alan ← durum.tahta[konum]
+
+        # B) Satın alma veya geçme
+        EĞER alan.sahibi = YOK VE oyuncu.nakit ≥ alan.fiyat İSE
+            EKLE(hamleler, "SATIN_AL")
+            EKLE(hamleler, "PAS_GEÇ")
+        SON
+
+        # C) Kira ödeme
+        EĞER alan.sahibi ≠ oyuncu VE alan.sahibi ≠ YOK İSE
+            EKLE(hamleler, "KIRA_ODE")
+        SON
+
+        # D) Bina yapma seçenekleri
+        EĞER oyuncu.bina_yapabilir = EVET İSE
+            bina_listesi ← BINA_YAPMA_SECENEKLERİ(durum, oyuncu)
+            EKLE(hamleler, bina_listesi)
+        SON
+
+        # E) İpotek ve ipotek çözme
+        EKLE(hamleler, IPOTEK_ISLEMLERI(durum, oyuncu))
+
+        # F) Ticaret teklifleri
+        EĞER oyuncu.ticaret_yapabilir = EVET İSE
+            teklifler ← TAVSIYE_TICARETLER(durum, oyuncu)
+            EKLE(hamleler, teklifler)
+        SON
+    SON
+
+    # Hamleleri tek liste haline getir
+    hamleler ← DÜZLEŞTİR(hamleler)
+    DÖNDÜR hamleler
+BİTİR
+
+
+FONKSİYON: HAMLE_DEĞERLENDİR(durum, oyuncu, hamle)
+BAŞLA
+    skor ← 0
+
+    # 1) Satın alma
+    EĞER hamle = "SATIN_AL" İSE
+        fiyat ← durum.tahta[oyuncu.konum].fiyat
+        kira ← durum.tahta[oyuncu.konum].kira
+        skor ← (kira * 3) - fiyat
+        EĞER oyuncu.nakit - fiyat < 50 İSE
+            skor ← skor - 20
+        SON
+    SON
+
+    # 2) Bina yapma
+    EĞER hamle = "BINA_YAP" İSE
+        maliyet ← 50
+        getir ← 100
+        skor ← getir - maliyet
+        EĞER oyuncu.nakit < maliyet + 50 İSE
+            skor ← skor - 30
+        SON
+    SON
+
+    # 3) Kira ödemesi
+    EĞER hamle = "KIRA_ODE" İSE
+        kira ← durum.tahta[oyuncu.konum].kira
+        skor ← -kira
+    SON
+
+    # 4) İpotek işlemleri
+    EĞER hamle = "IPOTEKLE" İSE
+        skor ← 50
+    SON
+
+    # 5) Jail seçenekleri
+    EĞER hamle = "PARA_ODE_50" VE oyuncu.hapiste_mi = EVET İSE
+        skor ← -50
+    SON
+    EĞER hamle = "KART_KULLAN" VE oyuncu.hapiste_mi = EVET İSE
+        skor ← 0
+    SON
+    EĞER hamle = "ZAR_AT" VE oyuncu.hapiste_mi = EVET İSE
+        skor ← 10
+    SON
+
+    DÖNDÜR skor
+BİTİR
+
+
+FONKSİYON: RISK_DÜZENLE(skor, durum, oyuncu)
+BAŞLA
+    varyans ← oyuncu.geçmiş_kazanç_varyansı
+    adj_skor ← skor - (0.2 * varyans)
+    DÖNDÜR adj_skor
+BİTİR
+
+
+ALGORİTMA: MONOPOLY_OYUN_DÖNGÜSÜ
+BAŞLA
+    DURUM ← OYUN_BASLAT()
+    OYUNCU ← DURUM.AKTIF_OYUNCU
+
+    TEKRAR
+        hamle ← MONOPOLY_EN_İYİ_HAMLE(DURUM, OYUNCU)
+        UYGULA(hamle, DURUM, OYUNCU)
+        DURUM ← GÜNCELLE(DURUM)
+        OYUNCU ← DURUM.AKTİF_OYUNCU
+    OYUN_BİTTİ_Mİ ← KONTROL_ET(DURUM)
+    DEĞİLSE
+        DEVAM_ET
+    BİTENE_KADAR
+BİTİR
